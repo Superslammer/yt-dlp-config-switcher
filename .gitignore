@@ -1,0 +1,3 @@
+*.exe
+yt-dlp\ configs/*
+config.toml
