@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -34,19 +35,6 @@ func main() {
 		return
 	}
 
-	// Get all yt-dlp configs
-	/*ytConfigs, err := os.ReadDir(ytConfigDir)
-	if err != nil {
-		fmt.Println(err)
-		panic(err)
-	}*/
-	/*for _, ytConfig := range ytConfigs {
-		if  {
-
-		}
-		fmt.Println(ytConfig.Name())
-	}*/
-
 	// Set up flags
 	configFlag := flag.String("c", config.DefaultConfig, "The config to use with yt-dlp")
 
@@ -57,15 +45,40 @@ func main() {
 	if fileData, err := os.Stat(ytConfigDir + *configFlag + ".conf"); err == nil && !fileData.IsDir() {
 		ytConfig := ytConfigDir + *configFlag + ".conf"
 		cmd := exec.Command(config.YtdlpPath, "--config-location", ytConfig, os.Args[len(os.Args)-1])
-		err := cmd.Run()
-		if err != nil {
-			fmt.Println(cmd.Stdout)
-			panic(err)
-		}
+		printYtdlpOutput(cmd)
 		return
 	} else {
 		fmt.Println("Suplied config file could not be found or default config file not set up")
 		return
+	}
+}
+
+func printYtdlpOutput(cmd *exec.Cmd) {
+	runErr := make(chan error)
+	go func() {
+		runErr <- cmd.Run()
+	}()
+
+	var cmdOut io.ReadCloser
+	cmdIsRunning := true
+	for cmdIsRunning {
+		select {
+		case runMsg := <-runErr:
+			if runMsg != nil {
+				fmt.Println(runMsg)
+			}
+			cmdIsRunning = false
+		default:
+			if cmdOut == nil {
+				cmdOut, _ = cmd.StdoutPipe()
+			} else {
+				var cmdOutData [512]byte
+				numBytes, err := cmdOut.Read(cmdOutData[:])
+				if err == nil && numBytes > 0 {
+					fmt.Print(string(cmdOutData[:numBytes]))
+				}
+			}
+		}
 	}
 }
 
