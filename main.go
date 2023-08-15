@@ -44,7 +44,7 @@ func main() {
 	// Cheking the suplied config file
 	if fileData, err := os.Stat(ytConfigDir + *configFlag + ".conf"); err == nil && !fileData.IsDir() {
 		ytConfig := ytConfigDir + *configFlag + ".conf"
-		cmd := exec.Command(config.YtdlpPath, "--config-location", ytConfig, os.Args[len(os.Args)-1])
+		cmd := exec.Command(config.YtdlpPath, "--ignore-config", "--config-location", ytConfig, os.Args[len(os.Args)-1])
 		printYtdlpOutput(cmd)
 		return
 	} else {
