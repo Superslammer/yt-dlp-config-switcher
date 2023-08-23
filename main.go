@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 )
@@ -111,9 +112,16 @@ func readConfig(confPath string) Config {
 }
 
 func createConfig(confPath string) {
-	fileData := "YtdlpPath = \"\"\r\nCurConfig = \"\""
-	err := os.WriteFile(confPath, []byte(fileData), 0666)
+	fileData := Config{}
+
+	if le, ok := os.LookupEnv("PATH"); ok {
+		paths := strings.Split(le, string(os.PathListSeparator))
+		fileData.YtdlpPath = getYTdlpPath(paths)
+	} else {
+		fmt.Println("Error")
+	}
+	/*err := os.WriteFile(confPath, []byte(fileData), 0666)
 	if err != nil {
 		panic(err)
-	}
+	}*/
 }
