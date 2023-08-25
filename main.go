@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"flag"
 	"fmt"
@@ -120,6 +121,70 @@ func createConfig(confPath string) {
 	} else {
 		fmt.Println("Error")
 	}
+
+	// Check if yt-dlp was found
+	if fileData.YtdlpPath == "" {
+		fmt.Println("Could not find the locaion of yt-dlp, please specify here (type 'n' if you don't have it):")
+		for {
+			input := bufio.NewScanner(os.Stdin)
+			input.Scan()
+			if input.Err() != nil {
+				panic(input.Err())
+			}
+
+			if input.Text() == "n" || input.Text() == "N" {
+				os.Exit(1)
+			}
+
+			if _, err := os.Stat(input.Text()); errors.Is(err, os.ErrNotExist) {
+				fmt.Println("The specified file does not exsist, please try again:")
+				continue
+			} else if ytdlp, err := os.Stat(input.Text()); err == nil && ytdlp.IsDir() {
+				fmt.Println("The specified location is a folder, the given path must be the exact file location of yt-dlp")
+				continue
+			}
+
+			fileData.YtdlpPath = input.Text()
+			break
+		}
+	}
+
+	ytdlpConfigs := make([]string, 1)
+
+	// Look for exsisting yt-dlp config files
+	if xdgCondfig, ok := os.LookupEnv("XDG_CONFIG_HOME"); ok && xdgCondfig != "" {
+
+	}
+
+	if appdata, ok := os.LookupEnv("APPDATA"); ok && appdata != "" {
+		configpath := appdata + string(os.PathSeparator) + "yt-dlp.conf"
+		_, err := os.Stat(configpath)
+		if err == nil {
+			ytdlpConfigs = append(ytdlpConfigs, configpath)
+		}
+
+		configpath = appdata + string(os.PathSeparator) + "yt-dlp" + string(os.PathSeparator) + "config"
+		_, err = os.Stat(configpath)
+		if err == nil {
+			ytdlpConfigs = append(ytdlpConfigs, configpath)
+		}
+
+		configpath = appdata + string(os.PathSeparator) + "yt-dlp" + string(os.PathSeparator) + "config.txt"
+		_, err = os.Stat(configpath)
+		if err == nil {
+			ytdlpConfigs = append(ytdlpConfigs, configpath)
+		}
+
+	}
+
+	if homeDir, ok := os.LookupEnv("HOME"); ok && homeDir != "" {
+
+	}
+
+	if ytdlpConfigs[0] != "" {
+		// Ask the user if the configs should be copied to the "yt-dlp configs" folder
+	}
+
 	/*err := os.WriteFile(confPath, []byte(fileData), 0666)
 	if err != nil {
 		panic(err)

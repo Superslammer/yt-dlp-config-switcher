@@ -16,7 +16,8 @@ func getYTdlpPath(paths []string) string {
 			panic(err)
 		}
 		for _, entry := range dirData {
-			if entry.Name() == "yt-dlp-switcher.exe" {
+			// Quick fix, in the future also check the hash against github
+			if entry.Name() == "yt-dlp.exe" {
 				return path + "\\" + entry.Name()
 			}
 		}
