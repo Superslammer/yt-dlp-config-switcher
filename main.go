@@ -151,11 +151,29 @@ func createConfig(confPath string) {
 
 	ytdlpConfigs := make([]string, 1)
 
-	// Look for exsisting yt-dlp config files
+	/// Look for exsisting yt-dlp config files
+	// Check XDG config
 	if xdgCondfig, ok := os.LookupEnv("XDG_CONFIG_HOME"); ok && xdgCondfig != "" {
+		configpath := xdgCondfig + string(os.PathSeparator) + "yt-dlp.conf"
+		_, err := os.Stat(configpath)
+		if err == nil {
+			ytdlpConfigs = append(ytdlpConfigs, configpath)
+		}
 
+		configpath = xdgCondfig + string(os.PathSeparator) + "yt-dlp" + string(os.PathSeparator) + "config"
+		_, err = os.Stat(configpath)
+		if err == nil {
+			ytdlpConfigs = append(ytdlpConfigs, configpath)
+		}
+
+		configpath = xdgCondfig + string(os.PathSeparator) + "yt-dlp" + string(os.PathSeparator) + "config.txt"
+		_, err = os.Stat(configpath)
+		if err == nil {
+			ytdlpConfigs = append(ytdlpConfigs, configpath)
+		}
 	}
 
+	// Appdata
 	if appdata, ok := os.LookupEnv("APPDATA"); ok && appdata != "" {
 		configpath := appdata + string(os.PathSeparator) + "yt-dlp.conf"
 		_, err := os.Stat(configpath)
@@ -177,12 +195,61 @@ func createConfig(confPath string) {
 
 	}
 
+	// Check home dir
 	if homeDir, ok := os.LookupEnv("HOME"); ok && homeDir != "" {
+		configpath := homeDir + string(os.PathSeparator) + "yt-dlp.conf"
+		if _, err := os.Stat(configpath); err == nil {
+			ytdlpConfigs = append(ytdlpConfigs, configpath)
+		}
 
+		configpath = homeDir + string(os.PathSeparator) + "yt-dlp.conf.txt"
+		if _, err := os.Stat(configpath); err == nil {
+			ytdlpConfigs = append(ytdlpConfigs, configpath)
+		}
+
+		configpath = homeDir + string(os.PathSeparator) + ".yt-dlp" + string(os.PathSeparator) + "config"
+		if _, err := os.Stat(configpath); err == nil {
+			ytdlpConfigs = append(ytdlpConfigs, configpath)
+		}
+
+		configpath = homeDir + string(os.PathSeparator) + ".yt-dlp" + string(os.PathSeparator) + "config.txt"
+		if _, err := os.Stat(configpath); err == nil {
+			ytdlpConfigs = append(ytdlpConfigs, configpath)
+		}
+	}
+
+	// Check /etc
+	systemDir := string(os.PathSeparator) + "etc" + string(os.PathSeparator)
+	if _, err := os.Stat(systemDir + "yt-dlp.conf"); err == nil {
+		ytdlpConfigs = append(ytdlpConfigs, systemDir+"yt-dlp.conf")
+	}
+
+	if _, err := os.Stat(systemDir + "yt-dlp" + string(os.PathSeparator) + "config"); err == nil {
+		ytdlpConfigs = append(ytdlpConfigs, systemDir+"yt-dlp"+string(os.PathSeparator)+"config")
+	}
+
+	if _, err := os.Stat(systemDir + "yt-dlp" + string(os.PathSeparator) + "config.txt"); err == nil {
+		ytdlpConfigs = append(ytdlpConfigs, systemDir+"yt-dlp"+string(os.PathSeparator)+"config.txt")
 	}
 
 	if ytdlpConfigs[0] != "" {
 		// Ask the user if the configs should be copied to the "yt-dlp configs" folder
+		fmt.Println("Fround thiese configs:")
+		for _, config := range ytdlpConfigs {
+			fmt.Println(config)
+		}
+		fmt.Print("Do you want to import them?(y/n): ")
+		var importConfigs bool
+		for {
+			input := bufio.NewScanner(os.Stdin)
+			input.Scan()
+			if strings.ToLower(input.Text()) == "n" {
+				importConfigs = false
+			} else if strings.ToLower(input.Text()) == "y" {
+				importConfigs = true
+			}
+		}
+
 	}
 
 	/*err := os.WriteFile(confPath, []byte(fileData), 0666)
