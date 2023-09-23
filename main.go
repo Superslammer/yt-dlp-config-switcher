@@ -149,6 +149,82 @@ func createConfig(confPath string) {
 		}
 	}
 
+	ytdlpConfigs := checkForYTConfigs()
+	if ytdlpConfigs[0] != "" {
+		// Ask the user if the configs should be copied to the "yt-dlp configs" folder
+		fmt.Println("Found these configs:")
+		for _, config := range ytdlpConfigs {
+			fmt.Println(config)
+		}
+
+		fmt.Print("Do you want to import them?(y/n): ")
+		importConfigs := readInputYN("")
+		fmt.Println()
+
+		fmt.Print("Do you want to name the different configs?(n/y): ")
+		nameConfigs := readInputYN("")
+		fmt.Println()
+
+		if importConfigs && nameConfigs {
+			replaceNames := make(map[string]string)
+			for _, config := range ytdlpConfigs {
+				fmt.Print(config + ": ")
+				input := bufio.NewScanner(os.Stdin)
+				input.Scan()
+				replaceNames[config] = input.Text()
+			}
+			copyConfigs(ytdlpConfigs, replaceNames)
+		} else if importConfigs {
+			copyConfigs(ytdlpConfigs, nil)
+		}
+
+		if importConfigs {
+			//Set default config
+			fmt.Println("Do you want to set a default config?(y/n)")
+			setDefault := readInputYN("")
+
+			if setDefault {
+				fmt.Println("Which config do you want to set as default?")
+				configs, err := os.ReadDir("yt-dlp configs\\")
+
+				if err != nil {
+					panic(err)
+				}
+				for _, config := range configs {
+					fmt.Println(config.Name())
+				}
+
+				for {
+					if fileData.DefaultConfig != "" {
+						break
+					}
+					fmt.Println()
+					fmt.Print(">> ")
+
+					input := bufio.NewScanner(os.Stdin)
+					input.Scan()
+					for _, config := range configs {
+						if config.Name() == input.Text() {
+							fileData.DefaultConfig = config.Name()
+							break
+						}
+					}
+				}
+			}
+		}
+	}
+
+	confFile, err := os.Create(confPath)
+	if err != nil {
+		panic(err)
+	}
+	defer confFile.Close()
+	if err := toml.NewEncoder(confFile).Encode(fileData); err != nil {
+		panic(err)
+	}
+}
+
+func checkForYTConfigs() []string {
 	ytdlpConfigs := make([]string, 1)
 
 	/// Look for exsisting yt-dlp config files
@@ -232,28 +308,35 @@ func createConfig(confPath string) {
 		ytdlpConfigs = append(ytdlpConfigs, systemDir+"yt-dlp"+string(os.PathSeparator)+"config.txt")
 	}
 
-	if ytdlpConfigs[0] != "" {
-		// Ask the user if the configs should be copied to the "yt-dlp configs" folder
-		fmt.Println("Fround thiese configs:")
-		for _, config := range ytdlpConfigs {
-			fmt.Println(config)
-		}
-		fmt.Print("Do you want to import them?(y/n): ")
-		var importConfigs bool
-		for {
-			input := bufio.NewScanner(os.Stdin)
-			input.Scan()
-			if strings.ToLower(input.Text()) == "n" {
-				importConfigs = false
-			} else if strings.ToLower(input.Text()) == "y" {
-				importConfigs = true
+	return ytdlpConfigs
+}
+
+func copyConfigs(configs []string, names map[string]string) {
+	if names == nil {
+		for _, config := range configs {
+			srcFile, err := os.ReadFile(config)
+			if err != nil {
+				panic(err)
+			}
+
+			dst := "yt-dlp configs" + string(os.PathSeparator) + strings.TrimSuffix(filepath.Base(config), filepath.Ext(config)) + ".conf"
+			err = os.WriteFile(dst, srcFile, 0644)
+			if err != nil {
+				panic(err)
 			}
 		}
+	} else {
+		for _, config := range configs {
+			srcFile, err := os.ReadFile(config)
+			if err != nil {
+				panic(err)
+			}
 
+			dst := "yt-dlp configs" + string(os.PathSeparator) + names[config] + ".conf"
+			err = os.WriteFile(dst, srcFile, 0644)
+			if err != nil {
+				panic(err)
+			}
+		}
 	}
-
-	/*err := os.WriteFile(confPath, []byte(fileData), 0666)
-	if err != nil {
-		panic(err)
-	}*/
 }
