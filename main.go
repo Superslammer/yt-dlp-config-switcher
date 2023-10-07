@@ -29,7 +29,11 @@ func main() {
 	installDir := filepath.Dir(exeDir)
 	ytConfigDir := installDir + string(os.PathSeparator) + "yt-dlp configs\\"
 	configPath := installDir + string(os.PathSeparator) + "config.toml"
-	var config = readConfig(configPath)
+	config, didNotExsist := readConfig(configPath)
+
+	if didNotExsist {
+		return
+	}
 
 	// Check if config is configured
 	if !isConfigValid(&config) {
@@ -88,15 +92,16 @@ func isConfigValid(config *Config) bool {
 	validYtdlp := false
 	if _, err := os.Stat(config.YtdlpPath); err == nil {
 		validYtdlp = true
-	} else {
-		fmt.Println(config.YtdlpPath) // DEBUG: remove this
 	}
+
 	return validYtdlp
 }
 
-func readConfig(confPath string) Config {
+func readConfig(confPath string) (Config, bool) {
+	createdConfig := false
+
 	if _, err := os.Stat(confPath); errors.Is(err, os.ErrNotExist) {
-		createConfig(confPath)
+		createdConfig = createConfig(confPath)
 	}
 
 	confData, err := os.ReadFile(confPath)
@@ -109,10 +114,10 @@ func readConfig(confPath string) Config {
 	if err != nil {
 		panic(err)
 	}
-	return conf
+	return conf, createdConfig
 }
 
-func createConfig(confPath string) {
+func createConfig(confPath string) bool {
 	fileData := Config{}
 
 	if le, ok := os.LookupEnv("PATH"); ok {
@@ -149,7 +154,7 @@ func createConfig(confPath string) {
 		}
 	}
 
-	ytdlpConfigs := checkForYTConfigs()
+	ytdlpConfigs := checkForYTConfigs(filepath.Dir(fileData.YtdlpPath))
 	if ytdlpConfigs[0] != "" {
 		// Ask the user if the configs should be copied to the "yt-dlp configs" folder
 		fmt.Println("Found these configs:")
@@ -161,7 +166,7 @@ func createConfig(confPath string) {
 		importConfigs := readInputYN("")
 		fmt.Println()
 
-		fmt.Print("Do you want to name the different configs?(n/y): ")
+		fmt.Print("Do you want to name the different configs?(y/n): ")
 		nameConfigs := readInputYN("")
 		fmt.Println()
 
@@ -180,7 +185,7 @@ func createConfig(confPath string) {
 
 		if importConfigs {
 			//Set default config
-			fmt.Println("Do you want to set a default config?(y/n)")
+			fmt.Print("Do you want to set a default config?(y/n): ")
 			setDefault := readInputYN("")
 
 			if setDefault {
@@ -219,15 +224,24 @@ func createConfig(confPath string) {
 		panic(err)
 	}
 	defer confFile.Close()
+
 	if err := toml.NewEncoder(confFile).Encode(fileData); err != nil {
 		panic(err)
+	} else {
+		return true
 	}
 }
 
-func checkForYTConfigs() []string {
-	ytdlpConfigs := make([]string, 1)
+func checkForYTConfigs(ytDlpPath string) []string {
+	ytdlpConfigs := make([]string, 0)
 
 	/// Look for exsisting yt-dlp config files
+	// Check yt-dlp file location
+	_, err := os.Stat(ytDlpPath + string(os.PathSeparator) + "yt-dlp.conf")
+	if err == nil {
+		ytdlpConfigs = append(ytdlpConfigs, ytDlpPath+string(os.PathSeparator)+"yt-dlp.conf")
+	}
+
 	// Check XDG config
 	if xdgCondfig, ok := os.LookupEnv("XDG_CONFIG_HOME"); ok && xdgCondfig != "" {
 		configpath := xdgCondfig + string(os.PathSeparator) + "yt-dlp.conf"
@@ -308,10 +322,24 @@ func checkForYTConfigs() []string {
 		ytdlpConfigs = append(ytdlpConfigs, systemDir+"yt-dlp"+string(os.PathSeparator)+"config.txt")
 	}
 
+	if len(ytdlpConfigs) == 0 {
+		ytdlpConfigs = make([]string, 1)
+	}
+
 	return ytdlpConfigs
 }
 
 func copyConfigs(configs []string, names map[string]string) {
+	//Check if "yt-dlp configs" folder exsist
+	if _, err := os.Stat("yt-dlp configs"); os.IsNotExist(err) {
+		ferr := os.Mkdir("yt-dlp configs", 0755)
+		if ferr != nil {
+			panic(ferr)
+		}
+	} else if err != nil {
+		panic(err)
+	}
+
 	if names == nil {
 		for _, config := range configs {
 			srcFile, err := os.ReadFile(config)
