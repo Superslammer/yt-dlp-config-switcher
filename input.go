@@ -25,3 +25,23 @@ func readInputYN(failString string) bool {
 		fmt.Print("\n" + failString)
 	}
 }
+
+func readInput(expectedStrings []string) string {
+	for {
+		fmt.Println()
+		fmt.Print(">> ")
+
+		input := bufio.NewScanner(os.Stdin)
+		input.Scan()
+
+		if expectedStrings != nil {
+			for _, expected := range expectedStrings {
+				if input.Text() == expected {
+					return expected
+				}
+			}
+		} else {
+			return input.Text()
+		}
+	}
+}
