@@ -1,4 +1,5 @@
 *.exe
+yt-dlp-switcher
 yt-dlp\ configs/*
 config.toml
 .vscode

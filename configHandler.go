@@ -101,7 +101,7 @@ func createConfig(confPath string) bool {
 
 		if setDefault {
 			fmt.Println("Which config do you want to set as default?")
-			configs, err := os.ReadDir("yt-dlp configs\\")
+			configs, err := os.ReadDir("yt-dlp configs" + string(os.PathSeparator))
 
 			if err != nil {
 				panic(err)
@@ -116,8 +116,6 @@ func createConfig(confPath string) bool {
 			}
 			fileData.DefaultConfig = readInput(expectedStrings)
 		}
-	} else {
-		fmt.Println("Unable to find any yt-dlp configs")
 	}
 
 	confFile, err := os.Create(confPath)

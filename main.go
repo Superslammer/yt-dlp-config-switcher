@@ -17,7 +17,7 @@ func main() {
 	}
 
 	installDir := filepath.Dir(exeDir)
-	ytConfigDir := installDir + string(os.PathSeparator) + "yt-dlp configs\\"
+	ytConfigDir := installDir + string(os.PathSeparator) + "yt-dlp configs" + string(os.PathSeparator)
 	configPath := installDir + string(os.PathSeparator) + "config.toml"
 	config, didNotExsist := readConfig(configPath)
 
