@@ -55,6 +55,10 @@ func main() {
 
 	flag.Parse()
 
+	if *configFlag != config.DefaultConfig {
+		*configFlag = *configFlag + ".conf"
+	}
+
 	/// Process flags
 	// Cheking the suplied config file
 	if fileData, err := os.Stat(ytConfigDir + *configFlag); err == nil && !fileData.IsDir() {
