@@ -10,24 +10,43 @@ import (
 )
 
 func main() {
-	// Read config
+	/// Read config
+	// Get path of executable
 	exeDir, err := os.Executable()
 	if err != nil {
 		panic(err)
 	}
 
-	installDir := filepath.Dir(exeDir)
-	ytConfigDir := installDir + string(os.PathSeparator) + "yt-dlp configs" + string(os.PathSeparator)
-	configPath := installDir + string(os.PathSeparator) + "config.toml"
-	config, didNotExsist := readConfig(configPath)
-
-	if didNotExsist {
-		return
+	exeDir, err = filepath.EvalSymlinks(exeDir)
+	if err != nil {
+		panic(err)
 	}
 
-	// Check if config is configured
-	if !isConfigValid(&config) {
-		fmt.Println("Please configure the cofig.toml file")
+	installDir := filepath.Dir(exeDir)
+
+	// Check if configs folder exsis
+	if _, err := os.Stat(installDir + string(os.PathSeparator) + "yt-dlp configs" + string(os.PathSeparator)); os.IsNotExist(err) {
+		// Ask if user wants to install in current folder
+		fmt.Print(`Couldn't find "yt-dlp configs" folder, do you want to create it?(Y/N): `)
+		answer := readInputYN("")
+		if !answer {
+			return
+		}
+
+		// Create config folder
+		dirErr := os.Mkdir(installDir+string(os.PathSeparator)+"yt-dlp configs"+string(os.PathSeparator), 0755)
+		if dirErr != nil {
+			fmt.Print(`Unable to create folder "yt-dlp configs": ` + err.Error())
+			return
+		}
+	} else if err != nil {
+		panic(err)
+	}
+
+	ytConfigDir := installDir + string(os.PathSeparator) + "yt-dlp configs" + string(os.PathSeparator)
+	config, didNotExsist := readConfig(installDir + string(os.PathSeparator) + "config.toml")
+
+	if didNotExsist {
 		return
 	}
 
@@ -36,10 +55,10 @@ func main() {
 
 	flag.Parse()
 
-	// Process flags
+	/// Process flags
 	// Cheking the suplied config file
-	if fileData, err := os.Stat(ytConfigDir + *configFlag + ".conf"); err == nil && !fileData.IsDir() {
-		ytConfig := ytConfigDir + *configFlag + ".conf"
+	if fileData, err := os.Stat(ytConfigDir + *configFlag); err == nil && !fileData.IsDir() {
+		ytConfig := ytConfigDir + *configFlag
 		cmd := exec.Command(config.YtdlpPath, "--ignore-config", "--config-location", ytConfig, os.Args[len(os.Args)-1])
 		printYtdlpOutput(cmd)
 		return
@@ -76,13 +95,4 @@ func printYtdlpOutput(cmd *exec.Cmd) {
 			}
 		}
 	}
-}
-
-func isConfigValid(config *Config) bool {
-	validYtdlp := false
-	if _, err := os.Stat(config.YtdlpPath); err == nil {
-		validYtdlp = true
-	}
-
-	return validYtdlp
 }

@@ -28,7 +28,6 @@ func readInputYN(failString string) bool {
 
 func readInput(expectedStrings []string) string {
 	for {
-		fmt.Println()
 		fmt.Print(">> ")
 
 		input := bufio.NewScanner(os.Stdin)
@@ -40,8 +39,10 @@ func readInput(expectedStrings []string) string {
 					return expected
 				}
 			}
+			fmt.Print("Invalid input")
 		} else {
 			return input.Text()
 		}
+		fmt.Println()
 	}
 }

@@ -20,68 +20,64 @@ func readConfig(confPath string) (Config, bool) {
 	createdConfig := false
 
 	if _, err := os.Stat(confPath); errors.Is(err, os.ErrNotExist) {
-		fmt.Println("No config found, creating one ...")
+		fmt.Print("No config found, do you want to create one?(Y/N): ")
+		answer := readInputYN("")
+		if !answer {
+			return Config{}, false
+		}
 		createdConfig = createConfig(confPath)
 	}
 
 	confData, err := os.ReadFile(confPath)
 	if err != nil {
-		panic(err)
+		fmt.Println("Error reading config file: " + err.Error())
+		return Config{}, false
 	}
 
 	var conf Config
 	_, err = toml.Decode(string(confData), &conf)
 	if err != nil {
-		panic(err)
+		fmt.Println("Error reading config file: " + err.Error())
+		return Config{}, false
 	}
 	return conf, createdConfig
 }
 
-/*
-
--Check if the yt-dlp was found
-	-Locate if not
--Check for yt-dlp configs
--Ask the user if they want to import and rename them
-	-Import and rename if they want
--Import yt-dlp configs
--Ask the user if they want to set a yt-dlp default config
-	-Set default yt-dlp config
-Write app config to file
-
-*/
-
 func createConfig(confPath string) bool {
 	fileData := Config{}
 
+	// Read yt-dlp from path
 	if le, ok := os.LookupEnv("PATH"); ok {
 		paths := strings.Split(le, string(os.PathListSeparator))
 		fileData.YtdlpPath = getYTdlpPath(paths)
 	} else {
-		fmt.Println("Error")
+		fmt.Println("Unable to read PATH")
+		return false
 	}
 
-	// Locate yt-dlp
-	locateYTDLP(fileData)
-
-	fmt.Print("Do you want to locate and import yt-dlp config files on this computer?(y/n): ")
-	importConfigs := readInputYN("")
+	// Locate yt-dlp if not found in path
+	locateYTDLP(&fileData)
 
 	// Locate yt-dlp configs
 	ytdlpConfigs := checkForYTConfigs(filepath.Dir(fileData.YtdlpPath))
 
+	importConfigs := false
+	if ytdlpConfigs[0] != "" {
+		fmt.Print("Found yt-dlp configs, do you want to import them?(Y/N): ")
+		importConfigs = readInputYN("")
+	}
+
 	// Import and rename configs
-	if ytdlpConfigs[0] != "" && importConfigs {
-		// Ask the user if the configs should be copied to the "yt-dlp configs" folder
+	if importConfigs {
 		fmt.Println("Found these configs:")
 		for _, config := range ytdlpConfigs {
 			fmt.Println(config)
 		}
 
-		fmt.Print("Do you want to name the different configs?(y/n): ")
+		fmt.Print("Do you want to rename the configs?(y/n): ")
 		nameConfigs := readInputYN("")
-		fmt.Println()
 
+		// Give configs new names if the user wants
 		if nameConfigs {
 			replaceNames := make(map[string]string)
 			for _, config := range ytdlpConfigs {
@@ -95,58 +91,76 @@ func createConfig(confPath string) bool {
 			copyConfigs(ytdlpConfigs, nil)
 		}
 
-		//Set default config
+		// Set default config
 		fmt.Print("Do you want to set a default config?(y/n): ")
 		setDefault := readInputYN("")
 
 		if setDefault {
 			fmt.Println("Which config do you want to set as default?")
 			configs, err := os.ReadDir("yt-dlp configs" + string(os.PathSeparator))
-
 			if err != nil {
-				panic(err)
+				fmt.Println(`Unable to read files in directory "yt-dlp configs": ` + err.Error())
 			}
+
 			for _, config := range configs {
 				fmt.Println(config.Name())
 			}
 
-			expectedStrings := make([]string, len(configs))
+			// Creating posible answers
+			expectedStrings := make([]string, 0)
 			for i := 0; i < len(configs); i++ {
-				expectedStrings[i] = configs[i].Name()
+				expectedStrings = append(expectedStrings, configs[i].Name())
+				expectedStrings = append(expectedStrings, configs[i].Name()[:len(configs[i].Name())-5])
+
 			}
+
+			// Making sure
 			fileData.DefaultConfig = readInput(expectedStrings)
+			if len(fileData.DefaultConfig) >= 5 && fileData.DefaultConfig[len(fileData.DefaultConfig)-5:len(fileData.DefaultConfig)] != ".conf" {
+				fileData.DefaultConfig = fileData.DefaultConfig + ".conf"
+			} else if len(fileData.DefaultConfig) < 5 {
+				fileData.DefaultConfig = fileData.DefaultConfig + ".conf"
+			}
 		}
 	}
 
+	// Create and write config file
 	confFile, err := os.Create(confPath)
 	if err != nil {
-		panic(err)
+		fmt.Println("Unable to create config file: " + err.Error())
+		return false
 	}
 	defer confFile.Close()
 
 	if err := toml.NewEncoder(confFile).Encode(fileData); err != nil {
-		panic(err)
+		fmt.Println("Unable to write config file: " + err.Error())
+		return false
 	} else {
 		return true
 	}
 }
 
-func locateYTDLP(fileData Config) {
+func locateYTDLP(fileData *Config) {
 	if fileData.YtdlpPath == "" {
-		fmt.Println("Could not find the locaion of yt-dlp, please specify here (type 'n' if you don't have it):")
+		fmt.Println("Could not find the locaion of yt-dlp, please specify here (type 'n' if you don't have it): ")
 		for {
+			// Read input from terminal
 			input := bufio.NewScanner(os.Stdin)
 			input.Scan()
 			if input.Err() != nil {
-				panic(input.Err())
-			}
-
-			if input.Text() == "n" || input.Text() == "N" {
+				fmt.Println("Unable to read input: " + input.Err().Error())
 				os.Exit(1)
 			}
 
+			// Exit if user doesn't have yt-dlp
+			if input.Text() == "n" || input.Text() == "N" {
+				fmt.Println("Download yt-dlp from here: https://github.com/yt-dlp/yt-dlp/releases/latest and try again")
+				os.Exit(1)
+			}
+
+			// Check if path exsist or is a folder
 			if _, err := os.Stat(input.Text()); errors.Is(err, os.ErrNotExist) {
-				fmt.Println("The specified file does not exsist, please try again:")
+				fmt.Println("The specified file does not exsist, please try again: ")
 				continue
 			} else if ytdlp, err := os.Stat(input.Text()); err == nil && ytdlp.IsDir() {
 				fmt.Println("The specified location is a folder, the given path must be the exact file location of yt-dlp")
@@ -190,7 +204,7 @@ func checkForYTConfigs(ytDlpPath string) []string {
 		}
 	}
 
-	// Appdata
+	// Check Appdata
 	if appdata, ok := os.LookupEnv("APPDATA"); ok && appdata != "" {
 		configpath := appdata + string(os.PathSeparator) + "yt-dlp.conf"
 		_, err := os.Stat(configpath)
@@ -257,17 +271,8 @@ func checkForYTConfigs(ytDlpPath string) []string {
 }
 
 func copyConfigs(configs []string, names map[string]string) {
-	//Check if "yt-dlp configs" folder exsist
-	if _, err := os.Stat("yt-dlp configs"); os.IsNotExist(err) {
-		ferr := os.Mkdir("yt-dlp configs", 0755)
-		if ferr != nil {
-			panic(ferr)
-		}
-	} else if err != nil {
-		panic(err)
-	}
-
 	if names == nil {
+		// Copy configs without renaming
 		for _, config := range configs {
 			srcFile, err := os.ReadFile(config)
 			if err != nil {
@@ -281,6 +286,7 @@ func copyConfigs(configs []string, names map[string]string) {
 			}
 		}
 	} else {
+		// Copy configs with renaming
 		for _, config := range configs {
 			srcFile, err := os.ReadFile(config)
 			if err != nil {

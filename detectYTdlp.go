@@ -16,6 +16,9 @@ func getYTdlpPath(paths []string) string {
 		for _, entry := range dirData {
 			// Quick fix, in the future also check the hash against github
 			if entry.Name() == "yt-dlp" || entry.Name() == "yt-dlp.exe" {
+				if path[len(path)-1] == os.PathSeparator {
+					return path + entry.Name()
+				}
 				return path + string(os.PathSeparator) + entry.Name()
 			}
 		}
