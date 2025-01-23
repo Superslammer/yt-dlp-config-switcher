@@ -62,6 +62,7 @@ func main() {
 
 	// Set up flags
 	flags := new(CMDFlags)
+	flags.Cfg = config
 	flags.InitFlags()
 
 	// Parse flags
