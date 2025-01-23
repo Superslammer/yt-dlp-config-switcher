@@ -4,12 +4,17 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 )
+
+type CMDFlags struct {
+	Cfg        *Config
+	ConfigFlag *string
+	ListFlag   *bool
+}
 
 func main() {
 	/// Read config
@@ -48,7 +53,7 @@ func main() {
 	// Create config
 	config := new(Config)
 
-	ytConfigDir := installDir + string(os.PathSeparator) + "yt-dlp configs" + string(os.PathSeparator)
+	config.YtConfigDir = installDir + string(os.PathSeparator) + "yt-dlp configs" + string(os.PathSeparator)
 	didNotExsist := config.ReadConfig(installDir + string(os.PathSeparator) + "config.toml")
 
 	if didNotExsist {
@@ -56,44 +61,53 @@ func main() {
 	}
 
 	// Set up flags
-	configFlag := flag.String("c", config.DefaultConfig, "The config to use with yt-dlp")
-	listFlag := flag.Bool("l", false, "List the avalibe config files")
+	flags := new(CMDFlags)
+	flags.InitFlags()
 
+	// Parse flags
 	flag.Parse()
 
-	if *configFlag != config.DefaultConfig {
-		*configFlag = *configFlag + ".conf"
-	}
+	// Handle flags
+	flags.HandleFlags()
+}
 
+func (cmf *CMDFlags) InitFlags() {
+	// Initialize flags and store them
+	cmf.ConfigFlag = flag.String("c", cmf.Cfg.DefaultConfig, "The config to use with yt-dlp")
+	cmf.ListFlag = flag.Bool("l", false, "List the avalibe config files")
+}
+
+func (cmf *CMDFlags) HandleFlags() {
 	/// Process flags
 	// List configs
-	if *listFlag {
-		configFiles, err := os.ReadDir(ytConfigDir)
+	if *cmf.ListFlag {
+		configFiles, err := os.ReadDir(cmf.Cfg.YtConfigDir)
 		if err != nil {
 			fmt.Println(`Unable to read files in "yt-dlp configs": ` + err.Error())
 			return
 		}
 
-		listYTConfigs(configFiles)
+		fmt.Println("Avalible configs: ")
+		for _, cfgFile := range configFiles {
+			fmt.Println("  " + strings.TrimSuffix(cfgFile.Name(), ".conf"))
+		}
 		return
 	}
 
+	// Fix config flag
+	if *cmf.ConfigFlag != cmf.Cfg.DefaultConfig {
+		*cmf.ConfigFlag = *cmf.ConfigFlag + ".conf"
+	}
+
 	// Cheking the suplied config file
-	if fileData, err := os.Stat(ytConfigDir + *configFlag); err == nil && !fileData.IsDir() {
-		ytConfig := ytConfigDir + *configFlag
-		cmd := exec.Command(config.YtdlpPath, "--ignore-config", "--config-location", ytConfig, os.Args[len(os.Args)-1])
+	if fileData, err := os.Stat(cmf.Cfg.YtConfigDir + *cmf.ConfigFlag); err == nil && !fileData.IsDir() {
+		ytConfig := cmf.Cfg.YtConfigDir + *cmf.ConfigFlag
+		cmd := exec.Command(cmf.Cfg.YtdlpPath, "--ignore-config", "--config-location", ytConfig, os.Args[len(os.Args)-1])
 		printYtdlpOutput(cmd)
 		return
 	} else {
 		fmt.Println("Suplied config file could not be found or default config file not set up")
 		return
-	}
-}
-
-func listYTConfigs(configs []fs.DirEntry) {
-	fmt.Println("Avalible configs: ")
-	for _, cfgFile := range configs {
-		fmt.Println("  " + strings.TrimSuffix(cfgFile.Name(), ".conf"))
 	}
 }
 

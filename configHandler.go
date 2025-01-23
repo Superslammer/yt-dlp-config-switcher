@@ -13,6 +13,7 @@ import (
 
 type Config struct {
 	YtdlpPath     string
+	YtConfigDir   string
 	DefaultConfig string
 }
 
@@ -43,8 +44,6 @@ func (cf *Config) ReadConfig(confPath string) bool {
 }
 
 func (cf *Config) CreateConfig(confPath string) bool {
-	//fileData := Config{}
-
 	// Read yt-dlp from path
 	if le, ok := os.LookupEnv("PATH"); ok {
 		paths := strings.Split(le, string(os.PathListSeparator))
