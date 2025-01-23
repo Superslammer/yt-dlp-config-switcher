@@ -4,9 +4,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 func main() {
@@ -52,6 +54,7 @@ func main() {
 
 	// Set up flags
 	configFlag := flag.String("c", config.DefaultConfig, "The config to use with yt-dlp")
+	listFlag := flag.Bool("l", false, "List the avalibe config files")
 
 	flag.Parse()
 
@@ -60,6 +63,18 @@ func main() {
 	}
 
 	/// Process flags
+	// List configs
+	if *listFlag {
+		configFiles, err := os.ReadDir(ytConfigDir)
+		if err != nil {
+			fmt.Println(`Unable to read files in "yt-dlp configs": ` + err.Error())
+			return
+		}
+
+		listYTConfigs(configFiles)
+		return
+	}
+
 	// Cheking the suplied config file
 	if fileData, err := os.Stat(ytConfigDir + *configFlag); err == nil && !fileData.IsDir() {
 		ytConfig := ytConfigDir + *configFlag
@@ -69,6 +84,13 @@ func main() {
 	} else {
 		fmt.Println("Suplied config file could not be found or default config file not set up")
 		return
+	}
+}
+
+func listYTConfigs(configs []fs.DirEntry) {
+	fmt.Println("Avalible configs: ")
+	for _, cfgFile := range configs {
+		fmt.Println("  " + strings.TrimSuffix(cfgFile.Name(), ".conf"))
 	}
 }
 
