@@ -16,50 +16,49 @@ type Config struct {
 	DefaultConfig string
 }
 
-func readConfig(confPath string) (Config, bool) {
+func (cf *Config) ReadConfig(confPath string) bool {
 	createdConfig := false
 
 	if _, err := os.Stat(confPath); errors.Is(err, os.ErrNotExist) {
 		fmt.Print("No config found, do you want to create one?(Y/N): ")
 		answer := readInputYN("")
 		if !answer {
-			return Config{}, false
+			return false
 		}
-		createdConfig = createConfig(confPath)
+		createdConfig = cf.CreateConfig(confPath)
 	}
 
 	confData, err := os.ReadFile(confPath)
 	if err != nil {
 		fmt.Println("Error reading config file: " + err.Error())
-		return Config{}, false
+		return false
 	}
 
-	var conf Config
-	_, err = toml.Decode(string(confData), &conf)
+	_, err = toml.Decode(string(confData), cf)
 	if err != nil {
 		fmt.Println("Error reading config file: " + err.Error())
-		return Config{}, false
+		return false
 	}
-	return conf, createdConfig
+	return createdConfig
 }
 
-func createConfig(confPath string) bool {
-	fileData := Config{}
+func (cf *Config) CreateConfig(confPath string) bool {
+	//fileData := Config{}
 
 	// Read yt-dlp from path
 	if le, ok := os.LookupEnv("PATH"); ok {
 		paths := strings.Split(le, string(os.PathListSeparator))
-		fileData.YtdlpPath = getYTdlpPath(paths)
+		cf.YtdlpPath = getYTdlpPath(paths)
 	} else {
 		fmt.Println("Unable to read PATH")
 		return false
 	}
 
 	// Locate yt-dlp if not found in path
-	locateYTDLP(&fileData)
+	cf.LocateYTDLP()
 
 	// Locate yt-dlp configs
-	ytdlpConfigs := checkForYTConfigs(filepath.Dir(fileData.YtdlpPath))
+	ytdlpConfigs := cf.CheckForYTConfigs()
 
 	importConfigs := false
 	if ytdlpConfigs[0] != "" {
@@ -86,9 +85,9 @@ func createConfig(confPath string) bool {
 				input.Scan()
 				replaceNames[config] = input.Text()
 			}
-			copyConfigs(ytdlpConfigs, replaceNames)
+			cf.CopyConfigs(ytdlpConfigs, replaceNames)
 		} else {
-			copyConfigs(ytdlpConfigs, nil)
+			cf.CopyConfigs(ytdlpConfigs, nil)
 		}
 
 		// Set default config
@@ -115,11 +114,11 @@ func createConfig(confPath string) bool {
 			}
 
 			// Making sure
-			fileData.DefaultConfig = readInput(expectedStrings)
-			if len(fileData.DefaultConfig) >= 5 && fileData.DefaultConfig[len(fileData.DefaultConfig)-5:len(fileData.DefaultConfig)] != ".conf" {
-				fileData.DefaultConfig = fileData.DefaultConfig + ".conf"
-			} else if len(fileData.DefaultConfig) < 5 {
-				fileData.DefaultConfig = fileData.DefaultConfig + ".conf"
+			cf.DefaultConfig = readInput(expectedStrings)
+			if len(cf.DefaultConfig) >= 5 && cf.DefaultConfig[len(cf.DefaultConfig)-5:len(cf.DefaultConfig)] != ".conf" {
+				cf.DefaultConfig = cf.DefaultConfig + ".conf"
+			} else if len(cf.DefaultConfig) < 5 {
+				cf.DefaultConfig = cf.DefaultConfig + ".conf"
 			}
 		}
 	}
@@ -132,7 +131,7 @@ func createConfig(confPath string) bool {
 	}
 	defer confFile.Close()
 
-	if err := toml.NewEncoder(confFile).Encode(fileData); err != nil {
+	if err := toml.NewEncoder(confFile).Encode(*cf); err != nil {
 		fmt.Println("Unable to write config file: " + err.Error())
 		return false
 	} else {
@@ -140,8 +139,8 @@ func createConfig(confPath string) bool {
 	}
 }
 
-func locateYTDLP(fileData *Config) {
-	if fileData.YtdlpPath == "" {
+func (cf *Config) LocateYTDLP() {
+	if cf.YtdlpPath == "" {
 		fmt.Println("Could not find the locaion of yt-dlp, please specify here (type 'n' if you don't have it): ")
 		for {
 			// Read input from terminal
@@ -167,14 +166,15 @@ func locateYTDLP(fileData *Config) {
 				continue
 			}
 
-			fileData.YtdlpPath = input.Text()
+			cf.YtdlpPath = input.Text()
 			break
 		}
 	}
 }
 
-func checkForYTConfigs(ytDlpPath string) []string {
+func (cf *Config) CheckForYTConfigs() []string {
 	ytdlpConfigs := make([]string, 0)
+	ytDlpPath := filepath.Dir(cf.YtdlpPath)
 
 	/// Look for exsisting yt-dlp config files
 	// Check yt-dlp file location
@@ -270,7 +270,7 @@ func checkForYTConfigs(ytDlpPath string) []string {
 	return ytdlpConfigs
 }
 
-func copyConfigs(configs []string, names map[string]string) {
+func (cf *Config) CopyConfigs(configs []string, names map[string]string) {
 	if names == nil {
 		// Copy configs without renaming
 		for _, config := range configs {

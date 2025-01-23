@@ -45,8 +45,11 @@ func main() {
 		panic(err)
 	}
 
+	// Create config
+	config := new(Config)
+
 	ytConfigDir := installDir + string(os.PathSeparator) + "yt-dlp configs" + string(os.PathSeparator)
-	config, didNotExsist := readConfig(installDir + string(os.PathSeparator) + "config.toml")
+	didNotExsist := config.ReadConfig(installDir + string(os.PathSeparator) + "config.toml")
 
 	if didNotExsist {
 		return
