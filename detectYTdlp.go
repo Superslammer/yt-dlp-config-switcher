@@ -5,23 +5,22 @@ import (
 	"os"
 )
 
-func getYTdlpPath(paths []string) string {
+func getYTdlpPath(paths []string) (string, error) {
 	for _, path := range paths {
 		dirData, err := os.ReadDir(path)
 		if errors.Is(err, os.ErrNotExist) {
 			continue
 		} else if err != nil {
-			panic(err)
+			return "", err
 		}
 		for _, entry := range dirData {
-			// Quick fix, in the future also check the hash against github
 			if entry.Name() == "yt-dlp" || entry.Name() == "yt-dlp.exe" {
 				if path[len(path)-1] == os.PathSeparator {
-					return path + entry.Name()
+					return path + entry.Name(), nil
 				}
-				return path + string(os.PathSeparator) + entry.Name()
+				return path + string(os.PathSeparator) + entry.Name(), nil
 			}
 		}
 	}
-	return ""
+	return "", nil
 }

@@ -1,9 +1,11 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -31,32 +33,24 @@ func main() {
 
 	installDir := filepath.Dir(exeDir)
 
-	// Check if configs folder exsis
-	if _, err := os.Stat(installDir + string(os.PathSeparator) + "yt-dlp configs" + string(os.PathSeparator)); os.IsNotExist(err) {
-		// Ask if user wants to install in current folder
-		fmt.Print(`Couldn't find "yt-dlp configs" folder, do you want to create it?(Y/N): `)
-		answer := readInputYN("")
-		if !answer {
-			return
-		}
-
-		// Create config folder
-		dirErr := os.Mkdir(installDir+string(os.PathSeparator)+"yt-dlp configs"+string(os.PathSeparator), 0755)
-		if dirErr != nil {
-			fmt.Print(`Unable to create folder "yt-dlp configs": ` + err.Error())
-			return
-		}
+	/// Check if program is installed
+	// Check if "yt-dlp configs" folder exists
+	if _, err := os.Stat(installDir + string(os.PathSeparator) + "yt-dlp configs" + string(os.PathSeparator)); errors.Is(err, fs.ErrNotExist) {
+		InstallProgram(installDir)
+		return
 	} else if err != nil {
-		panic(err)
+		fmt.Printf("Encountered an error checking if \"yt-dlp configs\" folder exists: %s\n", err.Error())
 	}
 
-	// Create config
+	// Create config and check that config file exists
 	config := new(Config)
-
 	config.YtConfigDir = installDir + string(os.PathSeparator) + "yt-dlp configs" + string(os.PathSeparator)
-	didNotExsist := config.ReadConfig(installDir + string(os.PathSeparator) + "config.toml")
+	wasAbleToRead, UnexpectedErr := config.ReadConfig(installDir + string(os.PathSeparator) + "config.toml")
 
-	if didNotExsist {
+	if !wasAbleToRead && UnexpectedErr == nil {
+		InstallProgram(installDir)
+		return
+	} else if UnexpectedErr != nil {
 		return
 	}
 
@@ -70,6 +64,42 @@ func main() {
 
 	// Handle flags
 	flags.HandleFlags()
+}
+
+func InstallProgram(installDir string) {
+	// Ask the user if they want to install
+	fmt.Print("Do you want to install \"yt-dlp-config-switcher\"? If not chose \"N\", backup the folder and try again (Y/N): ")
+	answer := readInputYN("")
+	if !answer {
+		return
+	}
+
+	// Check that the install folder is empty
+	filesInInstallDir, err := os.ReadDir(installDir)
+	if err != nil {
+		fmt.Printf("Encountered an error checking if the install folder is empty: %s\n", err.Error())
+		fmt.Printf("Aborting install!\n")
+		return
+	}
+	if len(filesInInstallDir) > 1 {
+		fmt.Printf("Please remove all other files in \"%s\" to install\n", installDir)
+	}
+
+	// Create "yt-dlp configs" folder
+	dirErr := os.Mkdir(installDir+string(os.PathSeparator)+"yt-dlp configs"+string(os.PathSeparator), 0755)
+	if dirErr != nil {
+		fmt.Printf("Encountered an error creating \"yt-dlp configs\" folder: %s\n", dirErr.Error())
+		fmt.Printf("Aborting install!\n")
+		return
+	}
+
+	// Create config file
+	config := new(Config)
+	config.YtConfigDir = installDir + string(os.PathSeparator) + "yt-dlp configs" + string(os.PathSeparator)
+	if !config.CreateConfig(fmt.Sprintf("%s%cconfig.toml", installDir, os.PathSeparator)) {
+		fmt.Printf("Aborting install!\n")
+	}
+
 }
 
 func (cmf *CMDFlags) InitFlags() {
@@ -101,15 +131,31 @@ func (cmf *CMDFlags) HandleFlags() {
 	}
 
 	// Cheking the suplied config file
-	if fileData, err := os.Stat(cmf.Cfg.YtConfigDir + *cmf.ConfigFlag); err == nil && !fileData.IsDir() {
-		ytConfig := cmf.Cfg.YtConfigDir + *cmf.ConfigFlag
-		cmd := exec.Command(cmf.Cfg.YtdlpPath, "--ignore-config", "--config-location", ytConfig, os.Args[len(os.Args)-1])
-		printYtdlpOutput(cmd)
+	fileData, err := os.Stat(cmf.Cfg.YtConfigDir + *cmf.ConfigFlag)
+	if errors.Is(err, fs.ErrNotExist) {
+		if *cmf.ConfigFlag == cmf.Cfg.DefaultConfig {
+			fmt.Println("Default config file not set up, you must supply a config file using \"-c\" or set a default it in \"config.toml\"")
+			return
+		}
+		fmt.Println("Suplied config file could not be found")
 		return
-	} else {
-		fmt.Println("Suplied config file could not be found or default config file not set up")
+	} else if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		fmt.Printf("Encountered an error reading the config file %s: %s\n", *cmf.ConfigFlag, err.Error())
+	} else if fileData.IsDir() {
+		if *cmf.ConfigFlag == cmf.Cfg.DefaultConfig && cmf.Cfg.DefaultConfig != "" {
+			fmt.Println("Default config file is set to a directory not a file, fix this in the \"config.toml\" file")
+			return
+		} else if *cmf.ConfigFlag == cmf.Cfg.DefaultConfig && cmf.Cfg.DefaultConfig == "" {
+			fmt.Println("Default config file is not set up, you must supply a config file using \"-c\" or set a default it in \"config.toml\"")
+			return
+		}
+		fmt.Println("Supplied path is a directory not a file")
 		return
 	}
+
+	ytConfig := cmf.Cfg.YtConfigDir + *cmf.ConfigFlag
+	cmd := exec.Command(cmf.Cfg.YtdlpPath, "--ignore-config", "--config-location", ytConfig, os.Args[len(os.Args)-1])
+	printYtdlpOutput(cmd)
 }
 
 func printYtdlpOutput(cmd *exec.Cmd) {
