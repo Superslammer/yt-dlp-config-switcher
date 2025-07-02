@@ -23,12 +23,14 @@ func main() {
 	// Get path of executable
 	exeDir, err := os.Executable()
 	if err != nil {
-		panic(err)
+		fmt.Printf("Unable to get execution path: %s", err.Error())
+		return
 	}
 
 	exeDir, err = filepath.EvalSymlinks(exeDir)
 	if err != nil {
-		panic(err)
+		fmt.Printf("Unable to get execution path: %s", err.Error())
+		return
 	}
 
 	installDir := filepath.Dir(exeDir)
