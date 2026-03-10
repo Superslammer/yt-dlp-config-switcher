@@ -4,12 +4,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/creack/pty"
 )
 
 type CMDFlags struct {
@@ -157,34 +158,26 @@ func (cmf *CMDFlags) HandleFlags() {
 
 	ytConfig := cmf.Cfg.YtConfigDir + *cmf.ConfigFlag
 	cmd := exec.Command(cmf.Cfg.YtdlpPath, "--ignore-config", "--config-location", ytConfig, os.Args[len(os.Args)-1])
-	printYtdlpOutput(cmd)
+	fmt.Println(printYtdlpOutput(cmd))
 }
 
-func printYtdlpOutput(cmd *exec.Cmd) {
-	runErr := make(chan error)
-	go func() {
-		runErr <- cmd.Run()
-	}()
+func printYtdlpOutput(cmd *exec.Cmd) error {
+	ptmx, err := pty.Start(cmd)
+	if err != nil {
+		return err
+	}
+	defer ptmx.Close()
 
-	var cmdOut io.ReadCloser
-	cmdIsRunning := true
-	for cmdIsRunning {
-		select {
-		case runMsg := <-runErr:
-			if runMsg != nil {
-				fmt.Println(runMsg)
-			}
-			cmdIsRunning = false
-		default:
-			if cmdOut == nil {
-				cmdOut, _ = cmd.StdoutPipe()
-			} else {
-				var cmdOutData [512]byte
-				numBytes, err := cmdOut.Read(cmdOutData[:])
-				if err == nil && numBytes > 0 {
-					fmt.Print(string(cmdOutData[:numBytes]))
-				}
-			}
+	buf := make([]byte, 256)
+	for {
+		n, err := ptmx.Read(buf)
+		if n > 0 {
+			os.Stdout.Write(buf[:n])
+		}
+		if err != nil {
+			break
 		}
 	}
+
+	return cmd.Wait()
 }
