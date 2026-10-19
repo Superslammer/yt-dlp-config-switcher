@@ -157,7 +157,7 @@ func (cmf *CMDFlags) HandleFlags() {
 	}
 
 	ytConfig := cmf.Cfg.YtConfigDir + *cmf.ConfigFlag
-	cmd := exec.Command(cmf.Cfg.YtdlpPath, "--ignore-config", "--config-location", ytConfig, os.Args[len(os.Args)-1])
+	cmd := exec.Command(cmf.Cfg.YtdlpPath, "--js-runtimes node", "--remote-components ejs:github", "--ignore-config", "--config-location", ytConfig, os.Args[len(os.Args)-1])
 	fmt.Println(printYtdlpOutput(cmd))
 }
 
